@@ -1,0 +1,12 @@
+{
+  "name": "wbr/wbr-stripe-payment",
+  "description": "Stripe Payment Plugin for WBR",
+  "require": {
+    "stripe/stripe-php": "^10.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "WBR\\Stripe\\": "includes/"
+    }
+  }
+}
