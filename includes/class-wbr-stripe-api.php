@@ -89,4 +89,24 @@ class WBR_Stripe_API {
 			return new WP_Error( 'stripe_error', 'Unable to initialize payment. Please contact support. (Ref: ' . substr(md5($e->getMessage()), 0, 8) . ')' );
 		}
 	}
+
+	public static function retrieve_checkout_session( $session_id ) {
+		$secret_key = self::get_secret_key();
+		if ( empty( $secret_key ) ) {
+			return new WP_Error( 'stripe_error', 'Payment configuration error: Secret Key is missing.' );
+		}
+
+		if ( ! class_exists( '\Stripe\Stripe' ) ) {
+			return new WP_Error( 'stripe_error', 'Payment system error: Stripe library missing.' );
+		}
+
+		\Stripe\Stripe::setApiKey( $secret_key );
+
+		try {
+			$session = \Stripe\Checkout\Session::retrieve( $session_id );
+			return $session;
+		} catch ( \Exception $e ) {
+			return new WP_Error( 'stripe_error', $e->getMessage() );
+		}
+	}
 }

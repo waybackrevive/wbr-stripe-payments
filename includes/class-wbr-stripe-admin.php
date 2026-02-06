@@ -11,6 +11,7 @@ class WBR_Stripe_Admin {
 		add_action( 'admin_post_wbr_create_order', array( $this, 'handle_create_order' ) );
 		add_action( 'wp_ajax_wbr_create_order_ajax', array( $this, 'ajax_create_order' ) );
 		add_action( 'wp_ajax_wbr_save_settings', array( $this, 'ajax_save_settings' ) );
+		add_action( 'wp_ajax_wbr_sync_order_status', array( $this, 'ajax_sync_order_status' ) );
 	}
 
 	public function add_admin_menu() {
@@ -46,6 +47,12 @@ class WBR_Stripe_Admin {
 		register_setting( 'wbr_stripe_settings', 'wbr_logo_url' );
 		register_setting( 'wbr_stripe_settings', 'wbr_custom_title' );
 		register_setting( 'wbr_stripe_settings', 'wbr_custom_description' );
+		
+		// Email Settings
+		register_setting( 'wbr_stripe_settings', 'wbr_enable_email_receipt' );
+		register_setting( 'wbr_stripe_settings', 'wbr_email_sender_name' );
+		register_setting( 'wbr_stripe_settings', 'wbr_email_sender_address' );
+		register_setting( 'wbr_stripe_settings', 'wbr_email_subject' );
 	}
 
 	public function render_settings_page() {
@@ -60,6 +67,8 @@ class WBR_Stripe_Admin {
             class="nav-tab <?php echo $active_tab == 'checkout' ? 'nav-tab-active' : ''; ?>">Checkout Options</a>
         <a href="?page=wbr-payments-settings&tab=appearance"
             class="nav-tab <?php echo $active_tab == 'appearance' ? 'nav-tab-active' : ''; ?>">Appearance</a>
+        <a href="?page=wbr-payments-settings&tab=email"
+            class="nav-tab <?php echo $active_tab == 'email' ? 'nav-tab-active' : ''; ?>">Email Notifications</a>
     </h2>
     <form id="wbr-settings-form">
         <?php
@@ -209,6 +218,48 @@ class WBR_Stripe_Admin {
             </tr>
         </table>
         <?php
+				} elseif ( $active_tab == 'email' ) {
+					?>
+        <table class="form-table">
+            <tr valign="top">
+                <th scope="row">Enable Email Receipts</th>
+                <td>
+                    <input type="checkbox" name="wbr_enable_email_receipt" value="1"
+                        <?php checked( get_option( 'wbr_enable_email_receipt', 1 ), 1 ); ?> />
+                    <label>Send payment receipt to client upon successful payment</label>
+                </td>
+            </tr>
+            <tr valign="top">
+                <th scope="row">Sender Name</th>
+                <td>
+                    <input type="text" name="wbr_email_sender_name"
+                        value="<?php echo esc_attr( get_option( 'wbr_email_sender_name', get_bloginfo( 'name' ) ) ); ?>"
+                        class="regular-text" placeholder="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>" />
+                    <p class="description">The name that appears in the "From" field.</p>
+                </td>
+            </tr>
+            <tr valign="top">
+                <th scope="row">Sender Email</th>
+                <td>
+                    <input type="email" name="wbr_email_sender_address"
+                        value="<?php echo esc_attr( get_option( 'wbr_email_sender_address', get_option( 'admin_email' ) ) ); ?>"
+                        class="regular-text" placeholder="<?php echo esc_attr( get_option( 'admin_email' ) ); ?>" />
+                    <p class="description">The email address that appears in the "From" field.</p>
+                </td>
+            </tr>
+            <tr valign="top">
+                <th scope="row">Email Subject</th>
+                <td>
+                    <input type="text" name="wbr_email_subject"
+                        value="<?php echo esc_attr( get_option( 'wbr_email_subject', 'Payment Receipt - Order #{order_id}' ) ); ?>"
+                        class="large-text" />
+                    <p class="description">Available placeholders: <code>{order_id}</code>, <code>{service}</code>,
+                        <code>{amount}</code>
+                    </p>
+                </td>
+            </tr>
+        </table>
+        <?php
 				}
 				?>
         <p class="submit">
@@ -330,6 +381,7 @@ document.getElementById('wbr-settings-form').addEventListener('submit', function
     <table class="wp-list-table widefat fixed striped" id="wbr-orders-table">
         <thead>
             <tr>
+                <th>ID</th>
                 <th>Date</th>
                 <th>Client</th>
                 <th>Service</th>
@@ -343,6 +395,7 @@ document.getElementById('wbr-settings-form').addEventListener('submit', function
             <?php foreach ( $orders as $order ) : ?>
             <?php $payment_url = home_url( 'pay/order/' . $order->order_token ); ?>
             <tr>
+                <td>#<?php echo esc_html( $order->id ); ?></td>
                 <td><?php echo esc_html( $order->created_at ); ?></td>
                 <td>
                     <?php echo esc_html( $order->client_name ); ?><br>
@@ -360,6 +413,14 @@ document.getElementById('wbr-settings-form').addEventListener('submit', function
                         style="color: white; background: <?php echo $color; ?>; padding: 3px 8px; border-radius: 3px; font-weight: bold;">
                         <?php echo ucfirst( esc_html( $order->status ) ); ?>
                     </span>
+                    <?php if ( ! empty( $order->transaction_id ) ) : ?>
+                    <br><small title="Transaction ID"
+                        style="color:#666; font-size:10px;"><?php echo esc_html( substr( $order->transaction_id, 0, 8 ) . '...' ); ?></small>
+                    <?php endif; ?>
+                    <?php if ( $order->status !== 'paid' && ! empty( $order->stripe_session_id ) ) : ?>
+                    <br><button type="button" class="button button-small wbr-sync-btn"
+                        data-id="<?php echo esc_attr( $order->id ); ?>" style="margin-top:5px;">Sync Status</button>
+                    <?php endif; ?>
                 </td>
                 <td>
                     <button type="button" class="button button-small wbr-copy-btn"
@@ -377,7 +438,7 @@ document.getElementById('wbr-settings-form').addEventListener('submit', function
             <?php endforeach; ?>
             <?php else : ?>
             <tr class="no-items">
-                <td colspan="6">No orders found.</td>
+                <td colspan="7">No orders found.</td>
             </tr>
             <?php endif; ?>
         </tbody>
@@ -390,6 +451,45 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         var form = document.getElementById('wbr-add-order-form');
         form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Sync Status Button
+    document.body.addEventListener('click', function(e) {
+        if (e.target.classList.contains('wbr-sync-btn')) {
+            e.preventDefault();
+            var btn = e.target;
+            var orderId = btn.getAttribute('data-id');
+            var originalText = btn.textContent;
+
+            btn.disabled = true;
+            btn.textContent = 'Syncing...';
+
+            var formData = new FormData();
+            formData.append('action', 'wbr_sync_order_status');
+            formData.append('order_id', orderId);
+            formData.append('wbr_nonce', '<?php echo wp_create_nonce( 'wbr_sync_order_nonce' ); ?>');
+
+            fetch(ajaxurl, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Order updated! Reloading...');
+                        location.reload();
+                    } else {
+                        alert('Sync failed: ' + (data.data.message || 'Unknown error'));
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    }
+                })
+                .catch(err => {
+                    alert('Network error.');
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                });
+        }
     });
 
     // Copy Link Functionality
@@ -482,6 +582,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     var row = document.createElement('tr');
                     row.style.backgroundColor = '#e8f5e9'; // Highlight new row
                     row.innerHTML = `
+								<td>#${order.id}</td>
 								<td>${order.created_at}</td>
 								<td>${order.client_name}<br><a href="mailto:${order.client_email}">${order.client_email}</a></td>
 								<td>${order.service_type}</td>
@@ -606,6 +707,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		}
 
 		$order_data = array(
+			'id'           => $wpdb->insert_id,
 			'created_at'   => $created_at,
 			'client_name'  => $client_name,
 			'client_email' => $client_email,
@@ -665,8 +767,70 @@ document.addEventListener('DOMContentLoaded', function() {
 			if ( isset( $_POST['wbr_custom_description'] ) ) {
 				update_option( 'wbr_custom_description', sanitize_textarea_field( $_POST['wbr_custom_description'] ) );
 			}
+		} elseif ( $active_tab == 'email' ) {
+			$enable_email = isset( $_POST['wbr_enable_email_receipt'] ) ? 1 : 0;
+			update_option( 'wbr_enable_email_receipt', $enable_email );
+
+			if ( isset( $_POST['wbr_email_sender_name'] ) ) {
+				update_option( 'wbr_email_sender_name', sanitize_text_field( $_POST['wbr_email_sender_name'] ) );
+			}
+			if ( isset( $_POST['wbr_email_sender_address'] ) ) {
+				update_option( 'wbr_email_sender_address', sanitize_email( $_POST['wbr_email_sender_address'] ) );
+			}
+			if ( isset( $_POST['wbr_email_subject'] ) ) {
+				update_option( 'wbr_email_subject', sanitize_text_field( $_POST['wbr_email_subject'] ) );
+			}
 		}
 
 		wp_send_json_success( array( 'message' => 'Settings saved.' ) );
+	}
+
+	public function ajax_sync_order_status() {
+		if ( ! isset( $_POST['wbr_nonce'] ) || ! wp_verify_nonce( $_POST['wbr_nonce'], 'wbr_sync_order_nonce' ) ) {
+			wp_send_json_error( array( 'message' => 'Security check failed' ) );
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+		}
+
+		$order_id = isset( $_POST['order_id'] ) ? intval( $_POST['order_id'] ) : 0;
+		if ( ! $order_id ) {
+			wp_send_json_error( array( 'message' => 'Invalid order ID' ) );
+		}
+
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'wbr_orders';
+		$order = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table_name WHERE id = %d", $order_id ), ARRAY_A );
+
+		if ( ! $order ) {
+			wp_send_json_error( array( 'message' => 'Order not found' ) );
+		}
+
+		if ( empty( $order['stripe_session_id'] ) ) {
+			wp_send_json_error( array( 'message' => 'No Stripe Session initiated for this order yet.' ) );
+		}
+
+		$session = WBR_Stripe_API::retrieve_checkout_session( $order['stripe_session_id'] );
+
+		if ( is_wp_error( $session ) ) {
+			wp_send_json_error( array( 'message' => 'Stripe Error: ' . $session->get_error_message() ) );
+		}
+
+		if ( $session->payment_status === 'paid' ) {
+			$transaction_id = isset( $session->payment_intent ) ? $session->payment_intent : $session->id;
+			
+			$wpdb->update( 
+				$table_name, 
+				array( 
+					'status' => 'paid',
+					'transaction_id' => $transaction_id
+				), 
+				array( 'id' => $order_id ) 
+			);
+
+			wp_send_json_success( array( 'message' => 'Order status updated to Paid.' ) );
+		} else {
+			wp_send_json_error( array( 'message' => 'Payment status is still: ' . $session->payment_status ) );
+		}
 	}
 }

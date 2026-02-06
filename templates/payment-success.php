@@ -15,7 +15,7 @@ $brand_color = get_option( 'wbr_brand_color', '#6772e5' );
 	</p>
 
 	<div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-		<p style="font-size: 14px; color: #999;">Order ID: #<?php echo esc_html( $order['id'] ); ?></p>
+		<!-- Order ID hidden as requested -->
 		<a href="<?php echo esc_url( home_url() ); ?>" style="display: inline-block; margin-top: 10px; color: <?php echo esc_attr( $brand_color ); ?>; text-decoration: none; font-weight: 600;">Return to Home</a>
 	</div>
 

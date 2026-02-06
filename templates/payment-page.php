@@ -86,7 +86,18 @@ if ( empty( $description ) ) {
 					btn.disabled = b;
 					btn.style.opacity = b ? '0.7' : '1';
 					if (b) {
+						var countdown = 0;
 						btnText.innerHTML = '<span class="wbr-spinner"></span> Redirecting...';
+						
+						// Simple visual cue interval
+						var dots = '';
+						var interval = setInterval(function(){
+							if(!busy) { clearInterval(interval); return; }
+							countdown++;
+							dots = '.'.repeat((countdown % 3) + 1);
+							btnText.innerHTML = '<span class="wbr-spinner"></span> Redirecting' + dots;
+						}, 500);
+						
 					} else {
 						btnText.textContent = 'Pay Securely via Stripe';
 					}

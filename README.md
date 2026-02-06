@@ -20,8 +20,11 @@ The plugin provides a seamless checkout experience hosted on your own domain, le
 *   **Secure Payment Links:** Generates unique, tokenized URLs for each order (e.g., `yourdomain.com/pay/order/{token}`).
 *   **Stripe Integration:** Uses Stripe Checkout for secure, PCI-compliant payment processing.
 *   **Test & Live Modes:** Toggle between Sandbox (Test) and Production (Live) environments easily.
+*   **Email Receipts:** Automatically send customizable payment receipts to clients upon successful payment.
+*   **Sync Status:** Manually verify and sync payment status from Stripe if a user closes the browser before redirection.
+*   **Transaction Tracking:** Stores Stripe Payment Intent IDs (Transaction IDs) for audit and dispute resolution.
 *   **Custom Branding:** Configure your brand color, logo, and page titles to match your identity.
-*   **Order Management:** Track payment status (Pending, Paid, Cancelled) from the admin dashboard.
+*   **Order Management:** Track payment status (Pending, Paid, Cancelled) from the admin dashboard with clear Order IDs.
 *   **AJAX-Powered:** Smooth user experience for creating orders and saving settings without page reloads.
 
 ## Installation
@@ -48,6 +51,10 @@ The plugin provides a seamless checkout experience hosted on your own domain, le
     *   **Brand Color:** Choose a primary color for buttons and accents.
     *   **Logo URL:** Upload a custom logo or leave empty to use the site's default logo.
     *   **Custom Title/Description:** Customize the text displayed on the payment page.
+5.  **Email Notifications:**
+    *   Enable/Disable automatic email receipts.
+    *   Customize Sender Name and Email Address.
+    *   Customize Email Subject with placeholders (e.g., `Payment Receipt - Order #{order_id}`).
 
 ## Usage
 
@@ -63,6 +70,11 @@ The plugin provides a seamless checkout experience hosted on your own domain, le
 2.  They review the order details and click **Pay Securely via Stripe**.
 3.  They are redirected to Stripe's secure checkout page to complete the transaction.
 4.  Upon success, they are redirected back to a "Payment Successful" confirmation page on your site.
+5.  They receive an email receipt (if enabled) with the transaction details.
+
+### Order Management
+*   **Status Sync:** If a client pays but the order status remains "Pending" (e.g., due to network issues), use the "Sync Status" button in the admin dashboard to verify the payment directly with Stripe and update the record.
+*   **Transaction IDs:** Paid orders display the official Stripe Transaction ID for reference.
 
 ## Requirements
 
@@ -71,6 +83,16 @@ The plugin provides a seamless checkout experience hosted on your own domain, le
 *   Stripe Account
 
 ## Changelog
+
+### 1.1.0
+*   Added "Email Notifications" settings tab.
+*   Implemented customizable email receipts for clients.
+*   Added "Sync Status" button to verify payments manually via Stripe API.
+*   Added Transaction ID storage (Stripe Payment Intent) for all paid orders.
+*   Improved Admin Dashboard UI (Order IDs, Copy Link fallback).
+*   Enhanced Security: Server-side payment verification to prevent URL manipulation.
+*   Fixed: Order ID visibility in admin table.
+*   Fixed: Payment success page loop issue.
 
 ### 1.0.0
 *   Initial release.

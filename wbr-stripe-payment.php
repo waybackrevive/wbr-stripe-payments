@@ -50,6 +50,7 @@ function wbr_stripe_activate() {
 		service_type varchar(255) NOT NULL,
 		order_token varchar(64) NOT NULL,
 		stripe_session_id varchar(255) DEFAULT '',
+		transaction_id varchar(255) DEFAULT '',
 		status varchar(20) DEFAULT 'pending',
 		notes text,
 		PRIMARY KEY  (id)
